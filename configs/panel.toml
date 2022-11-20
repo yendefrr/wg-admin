@@ -1,5 +1,0 @@
-bind_addr = ":80"
-log_level = "debug"
-database_url = "root:root@tcp(127.0.0.1:3306)/wgadmin"
-session_key = "89wefhw89id8cwe0w23j2k3n2k7d4b0dw8g79w786tyq2389pe4r5tguy89t6yh78974er5687ik64e390reo4er9o0w3eyhrt34hntiw"
-commands_path = "/var/www/wg-admin/internal/app/services/commands/"
