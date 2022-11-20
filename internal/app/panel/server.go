@@ -12,7 +12,9 @@ import (
 	"go/wg-admin/internal/app/model"
 	"go/wg-admin/internal/app/services"
 	"go/wg-admin/internal/app/store"
+	"html/template"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -59,12 +61,17 @@ func (s *server) configureRouter() {
 	s.router.Use(s.setRequestID)
 	s.router.Use(s.logRequest)
 	s.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
+	s.router.HandleFunc("/", s.handleIndexPage()).Methods("GET")
 	s.router.HandleFunc("/register", s.handleUserCreate()).Methods("POST")
 	s.router.HandleFunc("/login", s.handleAuthorize()).Methods("POST")
 
+	s.router.HandleFunc("/create-config", s.handleCreateConfigPage()).Methods("GET")
+	s.router.HandleFunc("/create-config", s.handleCreateConfig()).Methods("POST")
+
 	private := s.router.PathPrefix("/admin").Subrouter()
 	private.Use(s.authenticateUser)
-	private.HandleFunc("/create-config", s.handleCreateConfig()).Methods("POST")
+	//private.HandleFunc("/create-config", s.handleCreateConfigPage()).Methods("GET")
+	//private.HandleFunc("/create-config", s.handleCreateConfig()).Methods("POST")
 }
 
 func (s *server) setRequestID(next http.Handler) http.Handler {
@@ -97,6 +104,30 @@ func (s *server) logRequest(next http.Handler) http.Handler {
 	})
 }
 
+func (s *server) handleIndexPage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path, _ := os.Getwd()
+		t, _ := template.ParseFiles(path+"/web/templates/index.html", path+"/web/templates/header.html", path+"/web/templates/footer.html")
+
+		err := t.ExecuteTemplate(w, "index", nil)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+		}
+	}
+}
+
+func (s *server) handleCreateConfigPage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path, _ := os.Getwd()
+		t, _ := template.ParseFiles(path+"/web/templates/create-config.html", path+"/web/templates/header.html", path+"/web/templates/footer.html")
+
+		err := t.ExecuteTemplate(w, "create-config", nil)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+		}
+	}
+}
+
 func (s *server) authenticateUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := s.sessionsStore.Get(r, sessionName)
@@ -122,22 +153,22 @@ func (s *server) authenticateUser(next http.Handler) http.Handler {
 
 func (s *server) handleCreateConfig() http.HandlerFunc {
 	type request struct {
-		Name       string `json:"name"`
-		ConfigType string `json:"config_type"`
+		Name       string
+		ConfigType string
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		req := &request{}
-		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-			s.error(w, r, http.StatusBadRequest, err)
-			return
+		req := &request{
+			Name:       r.FormValue("name"),
+			ConfigType: r.FormValue("config_type"),
 		}
 
 		if err := s.command.Keygen(req.Name, req.ConfigType); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
+			return
 		}
 
-		s.respond(w, r, http.StatusOK, nil)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 
