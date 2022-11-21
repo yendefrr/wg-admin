@@ -163,11 +163,45 @@ func (s *server) handleCreateConfig() http.HandlerFunc {
 			ConfigType: r.FormValue("config_type"),
 		}
 
+		p := &model.Profile{
+			Username: req.Name,
+			Type:     req.ConfigType,
+			Path:     "/etc/wireguard/" + req.Name + "/" + req.ConfigType + "/",
+		}
+
+		if err := p.Validate(); err != nil {
+			s.error(w, r, http.StatusUnprocessableEntity, err)
+			return
+		}
+
 		if err := s.command.Keygen(req.Name, req.ConfigType); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
 
+		publickey, privatekey, err := p.ReadKeys()
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		p.Publickey = publickey
+		p.Privatekey = privatekey
+
+		//TODO: Think about transactions
+		if err := s.store.Profile().Create(p); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := p.AppendPear(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := s.command.RestartWG(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }

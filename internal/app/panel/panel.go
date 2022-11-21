@@ -3,7 +3,7 @@ package panel
 import (
 	"database/sql"
 	"github.com/gorilla/sessions"
-	"go/wg-admin/internal/app/services"
+	"go/wg-admin/internal/app/services/commands"
 	"go/wg-admin/internal/app/store/sqlstore"
 	"net/http"
 
@@ -20,7 +20,7 @@ func Start(config *Config) error {
 
 	store := sqlstore.New(db)
 	sessionStore := sessions.NewCookieStore([]byte(config.SessionKey))
-	command := services.NewCommand(config.CommandsPath)
+	command := commands.NewCommand(config.CommandsPath)
 	server := newServer(store, sessionStore, command)
 
 	return http.ListenAndServe(config.BindAddr, server)

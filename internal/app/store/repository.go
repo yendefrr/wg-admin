@@ -7,3 +7,9 @@ type UserRepository interface {
 	Find(int) (*model.User, error)
 	FindByEmail(string) (*model.User, error)
 }
+
+type ProfileRepository interface {
+	Create(profile *model.Profile) error
+	Find(int) (*model.Profile, error)
+	FindByUsername(string) (*model.Profile, error)
+}
