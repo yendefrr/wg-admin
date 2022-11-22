@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -106,12 +107,27 @@ func (s *server) logRequest(next http.Handler) http.Handler {
 
 func (s *server) handleIndexPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		path, _ := os.Getwd()
-		t, _ := template.ParseFiles(path+"/web/templates/index.html", path+"/web/templates/header.html", path+"/web/templates/footer.html")
-
-		err := t.ExecuteTemplate(w, "index", nil)
+		path, err := os.Getwd()
 		if err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		t, err := template.ParseFiles(path+"/web/templates/index.html", path+"/web/templates/header.html", path+"/web/templates/footer.html")
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		profiles, err := s.store.Profile().GetAll()
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := t.ExecuteTemplate(w, "index", profiles); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
 		}
 	}
 }
@@ -166,7 +182,7 @@ func (s *server) handleCreateConfig() http.HandlerFunc {
 		p := &model.Profile{
 			Username: req.Name,
 			Type:     req.ConfigType,
-			Path:     "/etc/wireguard/" + req.Name + "/" + req.ConfigType + "/",
+			Path:     fmt.Sprintf("/etc/wireguard/%s/%s/", req.Name, req.ConfigType),
 		}
 
 		if err := p.Validate(); err != nil {
@@ -202,6 +218,12 @@ func (s *server) handleCreateConfig() http.HandlerFunc {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
+
+		if err := p.GenProfile(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }

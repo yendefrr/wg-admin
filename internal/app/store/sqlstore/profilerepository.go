@@ -18,6 +18,35 @@ func (r *ProfileRepository) Create(p *model.Profile) error {
 	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `username` = '%s'", p.Username)).Scan(&p.ID)
 }
 
+func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
+	res, err := r.store.db.Query("SELECT * FROM `profiles`")
+	if err != nil {
+		return nil, err
+	}
+
+	var profiles []model.Profile
+	for res.Next() {
+		var profile model.Profile
+		err = res.Scan(
+			&profile.ID,
+			&profile.Username,
+			&profile.Type,
+			&profile.Path,
+			&profile.Publickey,
+			&profile.Privatekey,
+			&profile.IsActive,
+			&profile.HasTelegram,
+		)
+		if err != nil {
+			panic(err)
+		}
+
+		profiles = append(profiles, profile)
+	}
+
+	return profiles, nil
+}
+
 func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
 	return nil, nil
 }

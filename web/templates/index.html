@@ -1,9 +1,16 @@
-    {{ define "index" }}
+{{ define "index" }}
 
-    {{ template "header" }}
-      <main class="px-3">
-        <h1>Soon</h1>
-      </main>
-    {{ template "footer" }}
+{{ template "header" }}
+  <main class="px-3">
+      {{ range . }}
+          <div class="alert alert-success">
+              <h2>{{ .Username }}</h2>
+              <p>{{ .Type }}</p>
+          </div>
+      {{ else }}
+          <p class="lead">No profiles</p>
+      {{ end }}
+  </main>
+{{ template "footer" }}
 
-    {{ end }}
+{{ end }}
