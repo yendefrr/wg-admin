@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,8 +15,10 @@ import (
 	"go/wg-admin/internal/app/services"
 	"go/wg-admin/internal/app/store"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -62,7 +65,11 @@ func (s *server) configureRouter() {
 	s.router.Use(s.setRequestID)
 	s.router.Use(s.logRequest)
 	s.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
+
 	s.router.HandleFunc("/", s.handleIndexPage()).Methods("GET")
+
+	s.router.HandleFunc("/get-file", s.handleStreamConfig()).Methods("GET")
+
 	s.router.HandleFunc("/register", s.handleUserCreate()).Methods("POST")
 	s.router.HandleFunc("/login", s.handleAuthorize()).Methods("POST")
 
@@ -128,6 +135,36 @@ func (s *server) handleIndexPage() http.HandlerFunc {
 		if err := t.ExecuteTemplate(w, "index", profiles); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
+		}
+	}
+}
+
+func (s *server) handleStreamConfig() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.FormValue("id"))
+		if err != nil {
+			s.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		profile, err := s.store.Profile().Find(id)
+		if err != nil {
+			return
+		}
+
+		file, err := ioutil.ReadFile(profile.Path + "wg.conf")
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		b := bytes.NewBuffer(file)
+
+		w.Header().Set("Content-Disposition", "attachment; filename=\"wg.conf\"")
+		w.Header().Set("Content-Type", "application/octet-stream")
+
+		if _, err := b.WriteTo(w); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
 		}
 	}
 }

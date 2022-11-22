@@ -10,7 +10,6 @@ type ProfileRepository struct {
 }
 
 func (r *ProfileRepository) Create(p *model.Profile) error {
-
 	r.store.db.QueryRow(fmt.Sprintf(
 		"INSERT INTO `profiles` (`username`, `type`, `path`, `publickey`, `privatekey`) VALUES ('%s', '%s', '%s', '%s', '%s')",
 		p.Username, p.Type, p.Path, p.Publickey, p.Privatekey))
@@ -48,7 +47,22 @@ func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 }
 
 func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
-	return nil, nil
+	p := &model.Profile{}
+
+	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT * FROM `profiles` WHERE id = %d", id)).Scan(
+		&p.ID,
+		&p.Username,
+		&p.Type,
+		&p.Path,
+		&p.Publickey,
+		&p.Privatekey,
+		&p.IsActive,
+		&p.HasTelegram,
+	); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (r *ProfileRepository) FindByUsername(username string) (*model.Profile, error) {
