@@ -14,7 +14,7 @@ func (r *ProfileRepository) Create(p *model.Profile) error {
 		"INSERT INTO `profiles` (`username`, `type`, `path`, `publickey`, `privatekey`) VALUES ('%s', '%s', '%s', '%s', '%s')",
 		p.Username, p.Type, p.Path, p.Publickey, p.Privatekey))
 
-	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `username` = '%s'", p.Username)).Scan(&p.ID)
+	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `path` = '%s'", p.Path)).Scan(&p.ID)
 }
 
 func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
@@ -49,7 +49,7 @@ func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
 	p := &model.Profile{}
 
-	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT * FROM `profiles` WHERE id = %d", id)).Scan(
+	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT * FROM `profiles` WHERE `id` = %d", id)).Scan(
 		&p.ID,
 		&p.Username,
 		&p.Type,
