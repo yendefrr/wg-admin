@@ -99,7 +99,9 @@ func (p *Profile) GenProfile() error {
 		return err
 	}
 
-	if err := qrcode.WriteFile(t, qrcode.Medium, 512, fmt.Sprintf("%s/wg.png", p.Path)); err != nil {
+	path, _ := os.Getwd()
+
+	if err := qrcode.WriteFile(t, qrcode.Medium, 512, fmt.Sprintf("%s/web/img/%d_wg.png", path, p.ID)); err != nil {
 		return err
 	}
 

@@ -62,11 +62,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) configureRouter() {
+	path, _ := os.Getwd()
+
 	s.router.Use(s.setRequestID)
 	s.router.Use(s.logRequest)
 	s.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
 
 	s.router.HandleFunc("/", s.handleIndexPage()).Methods("GET")
+
+	s.router.Handle("/img/{file}", http.StripPrefix("/img/", http.FileServer(http.Dir(path+"/web/img")))).Methods("GET")
 
 	s.router.HandleFunc("/get-file", s.handleStreamConfig()).Methods("GET")
 
