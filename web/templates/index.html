@@ -5,14 +5,18 @@
 
 {{ template "header" }}
   <h1>Configs</h1> <br>
-  <main class="px-3">
+  <main>
       {{ range $user := $users }}
-          <div class="alert alert-success">
+          <div class="alert alert-success row">
               <h2>{{ $user.Username }}</h2>
               {{ range $type := $types }}
                 {{ if eq $user.Username $type.Username }}
-                    <p><a href="get-file?id={{ $type.ID }}">{{ $type.Type }}</a></p>
-                    <img src="img/{{ $type.ID }}_wg.png" alt="config qr code" width="256">
+                    <div class="card col-sm-6">
+                        <img class="card-img-top" src="img/{{ $type.ID }}_wg.png" alt="config qr code" width="128">
+                        <div class="card-body">
+                            <a href="get-file?id={{ $type.ID }}" class="btn btn-success btn-sm">{{ $type.Type }}</a>
+                        </div>
+                    </div>
                 {{ end }}
               {{ end }}
           </div>
