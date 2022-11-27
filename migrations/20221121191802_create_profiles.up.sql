@@ -5,6 +5,5 @@ CREATE TABLE profiles (
    path varchar(255) not null,
    publickey varchar(255) not null,
    privatekey varchar(255) not null,
-   is_active bool default true,
-   has_telegram bool default false
+   is_active bool default true
 );

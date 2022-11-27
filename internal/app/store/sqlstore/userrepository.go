@@ -19,20 +19,40 @@ func (r *UserRepository) Create(u *model.User) error {
 		return err
 	}
 	r.store.db.QueryRow(fmt.Sprintf(
-		"INSERT INTO users (email, password_hash) VALUES ('%s', '%s')",
-		u.Email,
-		u.PasswordHash))
+		"INSERT INTO users (username) VALUES ('%s')", u.Username))
 
-	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `users` WHERE `email` = '%s'", u.Email)).Scan(&u.ID)
+	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `users` WHERE `username` = '%s'", u.Username)).Scan(&u.ID)
+}
+
+func (r *UserRepository) GetAll() ([]model.User, error) {
+	res, err := r.store.db.Query("SELECT `id`, `username` FROM `users`")
+	if err != nil {
+		return nil, err
+	}
+
+	var users []model.User
+	for res.Next() {
+		var user model.User
+		err = res.Scan(
+			&user.ID,
+			&user.Username,
+		)
+		if err != nil {
+			panic(err)
+		}
+
+		users = append(users, user)
+	}
+
+	return users, nil
 }
 
 func (r *UserRepository) Find(id int) (*model.User, error) {
 	u := &model.User{}
 	if err := r.store.db.QueryRow(
-		fmt.Sprintf("SELECT `id`, `email`, `password_hash` FROM `users` WHERE `id` = '%d'", id)).Scan(
+		fmt.Sprintf("SELECT `id`, `username` FROM `users` WHERE `id` = '%d'", id)).Scan(
 		&u.ID,
-		&u.Email,
-		&u.PasswordHash,
+		&u.Username,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, store.ErrRecordNotFound
@@ -43,13 +63,12 @@ func (r *UserRepository) Find(id int) (*model.User, error) {
 
 	return u, nil
 }
-func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
+func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	u := &model.User{}
 	if err := r.store.db.QueryRow(
-		fmt.Sprintf("SELECT `id`, `email`, `password_hash` FROM `users` WHERE `email` = '%s'", email)).Scan(
+		fmt.Sprintf("SELECT `id`, `username` FROM `users` WHERE `username` = '%s'", username)).Scan(
 		&u.ID,
-		&u.Email,
-		&u.PasswordHash,
+		&u.Username,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, store.ErrRecordNotFound

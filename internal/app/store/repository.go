@@ -4,8 +4,9 @@ import "go/wg-admin/internal/app/model"
 
 type UserRepository interface {
 	Create(user *model.User) error
+	GetAll() ([]model.User, error)
 	Find(int) (*model.User, error)
-	FindByEmail(string) (*model.User, error)
+	FindByUsername(string) (*model.User, error)
 }
 
 type ProfileRepository interface {

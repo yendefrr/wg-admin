@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"database/sql"
 	"fmt"
 	"go/wg-admin/internal/app/model"
 )
@@ -10,6 +11,20 @@ type ProfileRepository struct {
 }
 
 func (r *ProfileRepository) Create(p *model.Profile) error {
+	u := &model.User{
+		Username: p.Username,
+	}
+
+	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `users` WHERE `username` = '%s'", p.Username)).Scan(&u.ID); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+
+		if err := r.store.User().Create(u); err != nil {
+			return err
+		}
+	}
+
 	r.store.db.QueryRow(fmt.Sprintf(
 		"INSERT INTO `profiles` (`username`, `type`, `path`, `publickey`, `privatekey`) VALUES ('%s', '%s', '%s', '%s', '%s')",
 		p.Username, p.Type, p.Path, p.Publickey, p.Privatekey))
@@ -34,7 +49,6 @@ func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 			&profile.Publickey,
 			&profile.Privatekey,
 			&profile.IsActive,
-			&profile.HasTelegram,
 		)
 		if err != nil {
 			panic(err)
@@ -57,7 +71,6 @@ func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
 		&p.Publickey,
 		&p.Privatekey,
 		&p.IsActive,
-		&p.HasTelegram,
 	); err != nil {
 		return nil, err
 	}
