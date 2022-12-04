@@ -1,22 +1,23 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
-	validation "github.com/go-ozzo/ozzo-validation"
-	"github.com/skip2/go-qrcode"
 	"io/ioutil"
 	"os"
+
+	validation "github.com/go-ozzo/ozzo-validation"
+	"github.com/skip2/go-qrcode"
 )
 
 type Profile struct {
-	ID          int    `json:"id"`
-	Username    string `json:"username"`
-	Type        string `json:"type"`
-	Path        string `json:"path"`
-	Publickey   string `json:"publickey"`
-	Privatekey  string `json:"privatekey"`
-	IsActive    bool   `json:"is_active"`
-	HasTelegram bool   `json:"has_telegram"`
+	ID         int    `json:"id"`
+	Username   string `json:"username"`
+	Type       string `json:"type"`
+	Path       string `json:"path"`
+	Publickey  string `json:"publickey"`
+	Privatekey string `json:"privatekey"`
+	IsActive   bool   `json:"is_active"`
 }
 
 func (p *Profile) Validate() error {
@@ -60,13 +61,14 @@ func (p *Profile) AppendPear() error {
 	}
 	defer f.Close()
 
-	if _, err = f.WriteString(fmt.Sprintf("\n[Peer]\nPublicKey = %s\nAllowedIPs = 10.0.0.%d/32\n", p.Publickey, p.ID)); err != nil {
+	if _, err = f.WriteString(fmt.Sprintf("\n[Peer]\nPublicKey = %sAllowedIPs = 10.0.0.%d/32\n", p.Publickey, p.ID)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+//GenProfileFiles <--
 func (p *Profile) GenProfile() error {
 	file, err := os.Open("/etc/wireguard/publickey")
 	if err != nil {
@@ -102,6 +104,30 @@ func (p *Profile) GenProfile() error {
 	path, _ := os.Getwd()
 
 	if err := qrcode.WriteFile(t, qrcode.Medium, 512, fmt.Sprintf("%s/web/img/%d_wg.png", path, p.ID)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Profile) DelProfileFiles() error {
+	if err := os.RemoveAll(p.Path); err != nil {
+		return err
+	}
+
+	if err := os.Remove(fmt.Sprintf("/var/www/wg-admin/web/img/%d_wg.png", p.ID)); err != nil {
+		return err
+	}
+
+	input, err := ioutil.ReadFile("/etc/wireguard/wgtest.conf")
+	if err != nil {
+		return err
+	}
+
+	output := bytes.Replace(input, []byte(fmt.Sprintf("\n[Peer]\nPublicKey = %sAllowedIPs = 10.0.0.%d/32\n", p.Publickey, p.ID)), []byte(""), -1)
+
+	err = ioutil.WriteFile("/etc/wireguard/wgtest.conf", []byte(output), 0777)
+	if err != nil {
 		return err
 	}
 

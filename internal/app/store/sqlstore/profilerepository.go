@@ -32,6 +32,12 @@ func (r *ProfileRepository) Create(p *model.Profile) error {
 	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `path` = '%s'", p.Path)).Scan(&p.ID)
 }
 
+func (r *ProfileRepository) Delete(id int) error {
+	r.store.db.QueryRow(fmt.Sprintf("DELETE FROM `profiles` WHERE `id` = %d", id))
+
+	return nil
+}
+
 func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 	res, err := r.store.db.Query("SELECT * FROM `profiles`")
 	if err != nil {

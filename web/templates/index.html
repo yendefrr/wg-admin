@@ -11,10 +11,12 @@
               <h2>{{ $user.Username }}</h2>
               {{ range $type := $types }}
                 {{ if eq $user.Username $type.Username }}
-                    <div class="card col-sm-6">
+                    <div class="card col-sm-6 p-1">
                         <img class="card-img-top" src="img/{{ $type.ID }}_wg.png" alt="config qr code" width="128">
                         <div class="card-body">
-                            <a href="get-file?id={{ $type.ID }}" class="btn btn-success btn-sm">{{ $type.Type }}</a>
+                            <h3>{{ $type.Type }}</h3>
+                            <a href="get-file?id={{ $type.ID }}" class="btn btn-success btn-sm">Download</a>
+                            <a href="/remove-config?id={{ $type.ID }}" class="btn btn-danger btn-sm">Remove</a>
                         </div>
                     </div>
                 {{ end }}

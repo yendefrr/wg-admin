@@ -5,11 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/sirupsen/logrus"
 	"go/wg-admin/internal/app/model"
 	"go/wg-admin/internal/app/services"
 	"go/wg-admin/internal/app/store"
@@ -19,6 +14,12 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -65,11 +66,12 @@ func (s *server) configureRouter() {
 	s.router.Handle("/img/{file}", http.StripPrefix("/img/", http.FileServer(http.Dir(path+"/web/img")))).Methods("GET")
 
 	s.router.HandleFunc("/get-file", s.handleStreamConfig()).Methods("GET")
+	s.router.HandleFunc("/remove-config", s.handleConfigDelete()).Methods("GET")
 
 	s.router.HandleFunc("/create-user", s.handleUserCreate()).Methods("POST")
 
 	s.router.HandleFunc("/create-config", s.handleCreateConfigPage()).Methods("GET")
-	s.router.HandleFunc("/create-config", s.handleCreateConfig()).Methods("POST")
+	s.router.HandleFunc("/create-config", s.handleConfigCreate()).Methods("POST")
 }
 
 func (s *server) setRequestID(next http.Handler) http.Handler {
@@ -180,7 +182,7 @@ func (s *server) handleCreateConfigPage() http.HandlerFunc {
 	}
 }
 
-func (s *server) handleCreateConfig() http.HandlerFunc {
+func (s *server) handleConfigCreate() http.HandlerFunc {
 	type request struct {
 		Name       string
 		ConfigType string
@@ -233,6 +235,28 @@ func (s *server) handleCreateConfig() http.HandlerFunc {
 		}
 
 		if err := p.GenProfile(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
+func (s *server) handleConfigDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, _ := strconv.Atoi(r.FormValue("id"))
+
+		p, err := s.store.Profile().Find(id)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		p.DelProfileFiles()
+
+		err = s.store.Profile().Delete(id)
+		if err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}

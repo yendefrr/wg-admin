@@ -11,6 +11,7 @@ type UserRepository interface {
 
 type ProfileRepository interface {
 	Create(profile *model.Profile) error
+	Delete(int) error
 	GetAll() ([]model.Profile, error)
 	Find(int) (*model.Profile, error)
 	FindByUsername(string) (*model.Profile, error)

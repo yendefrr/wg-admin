@@ -25,7 +25,7 @@ func (r *UserRepository) Create(u *model.User) error {
 }
 
 func (r *UserRepository) GetAll() ([]model.User, error) {
-	res, err := r.store.db.Query("SELECT `id`, `username` FROM `users`")
+	res, err := r.store.db.Query("SELECT DISTINCT u.id, u.username FROM users as u JOIN profiles as p on u.username = p.username;")
 	if err != nil {
 		return nil, err
 	}
