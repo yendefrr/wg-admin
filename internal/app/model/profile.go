@@ -17,6 +17,8 @@ type Profile struct {
 	Path       string `json:"path"`
 	Publickey  string `json:"publickey"`
 	Privatekey string `json:"privatekey"`
+	Config     string `json:"config"`
+	QRCode     string `json:"qrcode"`
 	IsActive   bool   `json:"is_active"`
 }
 
@@ -69,15 +71,15 @@ func (p *Profile) AppendPear() error {
 }
 
 //GenProfileFiles <--
-func (p *Profile) GenProfile() error {
+func (p *Profile) GenProfile() (string, error) {
 	file, err := os.Open("/etc/wireguard/publickey")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	publickey, err := ioutil.ReadAll(file)
 	if err != nil {
-		return err
+		return "", err
 	}
 	file.Close()
 
@@ -93,21 +95,21 @@ func (p *Profile) GenProfile() error {
 
 	f, err := os.OpenFile(fmt.Sprintf("%s/wg.conf", p.Path), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
 
 	if _, err = f.WriteString(t); err != nil {
-		return err
+		return "", err
 	}
 
 	path, _ := os.Getwd()
 
 	if err := qrcode.WriteFile(t, qrcode.Medium, 512, fmt.Sprintf("%s/web/img/%d_wg.png", path, p.ID)); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return t, nil
 }
 
 func (p *Profile) DelProfileFiles() error {

@@ -2,8 +2,11 @@ package sqlstore
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"go/wg-admin/internal/app/model"
+
+	"github.com/skip2/go-qrcode"
 )
 
 type ProfileRepository struct {
@@ -29,7 +32,18 @@ func (r *ProfileRepository) Create(p *model.Profile) error {
 		"INSERT INTO `profiles` (`username`, `type`, `path`, `publickey`, `privatekey`) VALUES ('%s', '%s', '%s', '%s', '%s')",
 		p.Username, p.Type, p.Path, p.Publickey, p.Privatekey))
 
-	return r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `path` = '%s'", p.Path)).Scan(&p.ID)
+	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `path` = '%s'", p.Path)).Scan(&p.ID); err != nil {
+		return err
+	}
+
+	t, _ := p.GenProfile()
+	png, _ := qrcode.Encode(t, qrcode.Medium, 512)
+	config := base64.StdEncoding.EncodeToString([]byte(t))
+	qrcode := base64.StdEncoding.EncodeToString([]byte(png))
+
+	r.store.db.QueryRow(fmt.Sprintf("UPDATE `profiles` SET `config` = '%s', `qrcode` = '%s' WHERE `id` = %d", config, qrcode, p.ID))
+
+	return nil
 }
 
 func (r *ProfileRepository) Delete(id int) error {
@@ -39,7 +53,7 @@ func (r *ProfileRepository) Delete(id int) error {
 }
 
 func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
-	res, err := r.store.db.Query("SELECT * FROM `profiles`")
+	res, err := r.store.db.Query("SELECT id, username, type, path, is_active FROM `profiles`")
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +66,6 @@ func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 			&profile.Username,
 			&profile.Type,
 			&profile.Path,
-			&profile.Publickey,
-			&profile.Privatekey,
 			&profile.IsActive,
 		)
 		if err != nil {
@@ -76,6 +88,8 @@ func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
 		&p.Path,
 		&p.Publickey,
 		&p.Privatekey,
+		&p.Config,
+		&p.QRCode,
 		&p.IsActive,
 	); err != nil {
 		return nil, err

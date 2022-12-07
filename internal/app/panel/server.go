@@ -150,7 +150,7 @@ func (s *server) handleStreamConfig() http.HandlerFunc {
 
 		profile, err := s.store.Profile().Find(id)
 		if err != nil {
-			return
+			logrus.Debugln(err)
 		}
 
 		file, err := ioutil.ReadFile(profile.Path + "wg.conf")
@@ -230,11 +230,6 @@ func (s *server) handleConfigCreate() http.HandlerFunc {
 		}
 
 		if err := s.command.RestartWG(); err != nil {
-			s.error(w, r, http.StatusInternalServerError, err)
-			return
-		}
-
-		if err := p.GenProfile(); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
