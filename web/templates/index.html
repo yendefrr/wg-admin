@@ -1,30 +1,53 @@
 {{ define "index" }}
 
 {{ $users := .users }}
-{{ $types := .profiles }}
+{{ $typesA := .profilesActive }}
+{{ $typesIA := .profilesInActive }}
 
 {{ template "header" }}
-  <h1>Configs</h1> <br>
   <main>
-      {{ range $user := $users }}
-          <div class="alert alert-success row">
-              <h2>{{ $user.Username }}</h2>
-              {{ range $type := $types }}
-                {{ if eq $user.Username $type.Username }}
-                    <div class="card col-sm-6 p-1">
-                        <img class="card-img-top" src="img/{{ $type.ID }}_wg.png" alt="config qr code" width="128">
-                        <div class="card-body">
-                            <h3>{{ $type.Type }}</h3>
-                            <a href="get-file?id={{ $type.ID }}" class="btn btn-success btn-sm">Download</a>
-                            <a href="/remove-config?id={{ $type.ID }}" class="btn btn-danger btn-sm">Remove</a>
-                        </div>
-                    </div>
+    {{ if $typesIA }}
+    <h1>Requests</h1> <br>
+          {{ range $user := $users }}
+              <div class="alert alert-success row">
+                  <h2>{{ $user.Username }}</h2>
+                  {{ range $type := $typesIA }}
+                      {{ if eq $user.Username $type.Username }}
+                          <div class="card col-sm-6 p-1">
+                              <div class="card-body">
+                                  <h3>{{ $type.Type }}</h3>
+                                  <a href="/create-config?id={{ $type.ID }}" class="btn btn-success btn-sm">Accept</a>
+                                  <a href="/remove-config-request?id={{ $type.ID }}" class="btn btn-danger btn-sm">Decline</a>
+                              </div>
+                          </div>
+                      {{ end }}
+                  {{ end }}
+              </div>
+          {{ end }}
+    {{ end }}
+
+    {{ if $typesA }}
+    <h1>Configs</h1> <br>
+        {{ range $user := $users }}
+            <div class="alert alert-success row">
+                <h2>{{ $user.Username }}</h2>
+                {{ range $type := $typesA }}
+                  {{ if eq $user.Username $type.Username }}
+                      <div class="card col-sm-6 p-1">
+                          <img class="card-img-top" src="img/{{ $type.ID }}_wg.png" alt="config qr code" width="128">
+                          <div class="card-body">
+                              <h3>{{ $type.Type }}</h3>
+                              <a href="/get-file?id={{ $type.ID }}" class="btn btn-success btn-sm">Download</a>
+                              <a href="/remove-config?id={{ $type.ID }}" class="btn btn-danger btn-sm">Remove</a>
+                         </div>
+                      </div>
+                  {{ end }}
                 {{ end }}
-              {{ end }}
-          </div>
-      {{ else }}
-          <p class="lead">No profiles</p>
-      {{ end }}
+            </div>
+        {{ else }}
+            <p class="lead">No profiles</p>
+        {{ end }}
+    {{ end }}
   </main>
 {{ template "footer" }}
 

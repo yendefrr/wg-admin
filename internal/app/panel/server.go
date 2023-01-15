@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/segmentio/kafka-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,16 +33,18 @@ type server struct {
 	router        *mux.Router
 	logger        *logrus.Logger
 	store         store.Store
+	events        *kafka.Conn
 	sessionsStore sessions.Store
 	command       services.Command
 }
 
-func newServer(store store.Store, sessionsStore sessions.Store, command services.Command) *server {
+func newServer(store store.Store, sessionsStore sessions.Store, events *kafka.Conn, command services.Command) *server {
 	s := &server{
 		router:        mux.NewRouter(),
 		logger:        logrus.New(),
 		store:         store,
 		sessionsStore: sessionsStore,
+		events:        events,
 		command:       command,
 	}
 
@@ -67,11 +70,13 @@ func (s *server) configureRouter() {
 
 	s.router.HandleFunc("/get-file", s.handleStreamConfig()).Methods("GET")
 	s.router.HandleFunc("/remove-config", s.handleConfigDelete()).Methods("GET")
+	s.router.HandleFunc("/remove-config-request", s.handleConfigRequestDelete()).Methods("GET")
 
 	s.router.HandleFunc("/create-user", s.handleUserCreate()).Methods("POST")
 
-	s.router.HandleFunc("/create-config", s.handleCreateConfigPage()).Methods("GET")
-	s.router.HandleFunc("/create-config", s.handleConfigCreate()).Methods("POST")
+	s.router.HandleFunc("/make-config", s.handleCreateConfigPage()).Methods("GET")
+	s.router.HandleFunc("/create-config-request", s.handleConfigCreateRequest()).Methods("POST")
+	s.router.HandleFunc("/create-config", s.handleConfigCreate()).Methods("GET")
 }
 
 func (s *server) setRequestID(next http.Handler) http.Handler {
@@ -123,7 +128,12 @@ func (s *server) handleIndexPage() http.HandlerFunc {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
-		profiles, err := s.store.Profile().GetAll()
+		profilesActive, err := s.store.Profile().GetAll(true)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		profilesInActive, err := s.store.Profile().GetAll(false)
 		if err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
@@ -131,7 +141,11 @@ func (s *server) handleIndexPage() http.HandlerFunc {
 
 		params := map[string]interface{}{}
 		params["users"] = users
-		params["profiles"] = profiles
+		params["profilesActive"] = profilesActive
+		params["profilesInActive"] = profilesInActive
+
+		fmt.Println(profilesInActive)
+		fmt.Println(profilesActive)
 
 		if err := t.ExecuteTemplate(w, "index", params); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
@@ -182,7 +196,7 @@ func (s *server) handleCreateConfigPage() http.HandlerFunc {
 	}
 }
 
-func (s *server) handleConfigCreate() http.HandlerFunc {
+func (s *server) handleConfigCreateRequest() http.HandlerFunc {
 	type request struct {
 		Name       string
 		ConfigType string
@@ -198,6 +212,7 @@ func (s *server) handleConfigCreate() http.HandlerFunc {
 			Username: req.Name,
 			Type:     req.ConfigType,
 			Path:     fmt.Sprintf("/etc/wireguard/%s/%s/", req.Name, req.ConfigType),
+			IsActive: false,
 		}
 
 		if err := p.Validate(); err != nil {
@@ -205,7 +220,27 @@ func (s *server) handleConfigCreate() http.HandlerFunc {
 			return
 		}
 
-		if err := s.command.Keygen(req.Name, req.ConfigType); err != nil {
+		//TODO: Think about transactions
+		if err := s.store.Profile().Create(p); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
+func (s *server) handleConfigCreate() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, _ := strconv.Atoi(r.FormValue("id"))
+
+		p, err := s.store.Profile().Find(id)
+		if err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := s.command.Keygen(p.Username, p.Type); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
@@ -217,12 +252,7 @@ func (s *server) handleConfigCreate() http.HandlerFunc {
 		}
 		p.Publickey = publickey
 		p.Privatekey = privatekey
-
-		//TODO: Think about transactions
-		if err := s.store.Profile().Create(p); err != nil {
-			s.error(w, r, http.StatusInternalServerError, err)
-			return
-		}
+		p.IsActive = true
 
 		if err := p.AppendPear(); err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
@@ -230,6 +260,25 @@ func (s *server) handleConfigCreate() http.HandlerFunc {
 		}
 
 		if err := s.command.RestartWG(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		if err := s.store.Profile().Update(p); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
+func (s *server) handleConfigRequestDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, _ := strconv.Atoi(r.FormValue("id"))
+
+		err := s.store.Profile().Delete(id)
+		if err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
@@ -248,7 +297,10 @@ func (s *server) handleConfigDelete() http.HandlerFunc {
 			return
 		}
 
-		p.DelProfileFiles()
+		if err := p.DelProfileFiles(); err != nil {
+			s.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
 
 		err = s.store.Profile().Delete(id)
 		if err != nil {

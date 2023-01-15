@@ -3,7 +3,7 @@ package model
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	validation "github.com/go-ozzo/ozzo-validation"
@@ -36,7 +36,7 @@ func (p *Profile) ReadKeys() (string, string, error) {
 		return "", "", err
 	}
 
-	publickey, err := ioutil.ReadAll(file)
+	publickey, err := io.ReadAll(file)
 	if err != nil {
 		return "", "", err
 	}
@@ -47,7 +47,7 @@ func (p *Profile) ReadKeys() (string, string, error) {
 		return "", "", err
 	}
 
-	privatekey, err := ioutil.ReadAll(file)
+	privatekey, err := io.ReadAll(file)
 	if err != nil {
 		return "", "", err
 	}
@@ -70,14 +70,14 @@ func (p *Profile) AppendPear() error {
 	return nil
 }
 
-//GenProfileFiles <--
+// GenProfileFiles <--
 func (p *Profile) GenProfile() (string, error) {
 	file, err := os.Open("/etc/wireguard/publickey")
 	if err != nil {
 		return "", err
 	}
 
-	publickey, err := ioutil.ReadAll(file)
+	publickey, err := io.ReadAll(file)
 	if err != nil {
 		return "", err
 	}
@@ -89,7 +89,7 @@ func (p *Profile) GenProfile() (string, error) {
 		"DNS = 8.8.8.8\n\n"+
 		"[Peer]\n"+
 		"PublicKey = %s\n"+
-		"Endpoint = %s:51830\n"+
+		"Endpoint = %s:51880\n"+
 		"AllowedIPs = 0.0.0.0/0\n"+
 		"PersistentKeepalive = 20", p.Privatekey, p.ID, publickey, "0.0.0.0")
 
@@ -121,14 +121,14 @@ func (p *Profile) DelProfileFiles() error {
 		return err
 	}
 
-	input, err := ioutil.ReadFile("/etc/wireguard/wgtest.conf")
+	input, err := os.ReadFile("/etc/wireguard/wgtest.conf")
 	if err != nil {
 		return err
 	}
 
 	output := bytes.Replace(input, []byte(fmt.Sprintf("\n[Peer]\nPublicKey = %sAllowedIPs = 10.0.0.%d/32\n", p.Publickey, p.ID)), []byte(""), -1)
 
-	err = ioutil.WriteFile("/etc/wireguard/wgtest.conf", []byte(output), 0777)
+	err = os.WriteFile("/etc/wireguard/wgtest.conf", []byte(output), 0777)
 	if err != nil {
 		return err
 	}

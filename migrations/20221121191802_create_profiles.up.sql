@@ -3,9 +3,9 @@ CREATE TABLE profiles (
    username varchar(255) not null,
    type varchar(255) not null,
    path varchar(255) not null,
-   publickey varchar(255) not null,
-   privatekey varchar(255) not null,
-   config text,
-   qrcode text,
-   is_active bool default true
+   publickey varchar(255) default null,
+   privatekey varchar(255) default null,
+   config text default null,
+   qrcode text default null,
+   is_active bool default false
 );

@@ -1,11 +1,15 @@
 package panel
 
 import (
+	"context"
 	"database/sql"
-	"github.com/gorilla/sessions"
 	"go/wg-admin/internal/app/services/commands"
 	"go/wg-admin/internal/app/store/sqlstore"
 	"net/http"
+
+	"github.com/segmentio/kafka-go"
+
+	"github.com/gorilla/sessions"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -21,7 +25,12 @@ func Start(config *Config) error {
 	store := sqlstore.New(db)
 	sessionStore := sessions.NewCookieStore([]byte(config.SessionKey))
 	command := commands.NewCommand(config.CommandsPath)
-	server := newServer(store, sessionStore, command)
+	events, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", "requests", 0)
+	if err != nil {
+		return err
+	}
+
+	server := newServer(store, sessionStore, events, command)
 
 	return http.ListenAndServe(config.BindAddr, server)
 }

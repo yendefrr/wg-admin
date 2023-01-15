@@ -29,31 +29,37 @@ func (r *ProfileRepository) Create(p *model.Profile) error {
 	}
 
 	r.store.db.QueryRow(fmt.Sprintf(
-		"INSERT INTO `profiles` (`username`, `type`, `path`, `publickey`, `privatekey`) VALUES ('%s', '%s', '%s', '%s', '%s')",
-		p.Username, p.Type, p.Path, p.Publickey, p.Privatekey))
+		"INSERT INTO `profiles` (`username`, `type`, `path`) VALUES ('%s', '%s', '%s')",
+		p.Username, p.Type, p.Path))
 
 	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT `id` FROM `profiles` WHERE `path` = '%s'", p.Path)).Scan(&p.ID); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (r *ProfileRepository) Update(p *model.Profile) error {
 	t, _ := p.GenProfile()
 	png, _ := qrcode.Encode(t, qrcode.Medium, 512)
-	config := base64.StdEncoding.EncodeToString([]byte(t))
-	qrcode := base64.StdEncoding.EncodeToString([]byte(png))
+	baseConfig := base64.StdEncoding.EncodeToString([]byte(t))
+	baseQrcode := base64.StdEncoding.EncodeToString(png)
 
-	r.store.db.QueryRow(fmt.Sprintf("UPDATE `profiles` SET `config` = '%s', `qrcode` = '%s' WHERE `id` = %d", config, qrcode, p.ID))
+	r.store.db.QueryRow(fmt.Sprintf(
+		"UPDATE `profiles` SET `publickey` = '%s', `privatekey` = '%s', `config` = '%s', `qrcode` = '%s', `is_active` = %t WHERE id = %d",
+		p.Publickey, p.Privatekey, baseConfig, baseQrcode, p.IsActive, p.ID))
 
 	return nil
 }
 
 func (r *ProfileRepository) Delete(id int) error {
-	r.store.db.QueryRow(fmt.Sprintf("DELETE FROM `profiles` WHERE `id` = %d", id))
+	r.store.db.QueryRow(fmt.Sprintf("DELETE FROM `profiles` WHERE `id` = '%d'", id))
 
 	return nil
 }
 
-func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
-	res, err := r.store.db.Query("SELECT id, username, type, path, is_active FROM `profiles`")
+func (r *ProfileRepository) GetAll(isActive bool) ([]model.Profile, error) {
+	res, err := r.store.db.Query("SELECT id, username, type, path, is_active FROM `profiles` WHERE is_active = ?", isActive)
 	if err != nil {
 		return nil, err
 	}
@@ -81,15 +87,11 @@ func (r *ProfileRepository) GetAll() ([]model.Profile, error) {
 func (r *ProfileRepository) Find(id int) (*model.Profile, error) {
 	p := &model.Profile{}
 
-	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT * FROM `profiles` WHERE `id` = %d", id)).Scan(
+	if err := r.store.db.QueryRow(fmt.Sprintf("SELECT id, username, type, path, is_active FROM `profiles` WHERE `id` = %d", id)).Scan(
 		&p.ID,
 		&p.Username,
 		&p.Type,
 		&p.Path,
-		&p.Publickey,
-		&p.Privatekey,
-		&p.Config,
-		&p.QRCode,
 		&p.IsActive,
 	); err != nil {
 		return nil, err
