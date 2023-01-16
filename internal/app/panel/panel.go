@@ -7,6 +7,7 @@ import (
 	"go/wg-admin/internal/app/store/sqlstore"
 	"net/http"
 
+	"github.com/go-redis/redis"
 	"github.com/segmentio/kafka-go"
 
 	"github.com/gorilla/sessions"
@@ -26,11 +27,16 @@ func Start(config *Config) error {
 	sessionStore := sessions.NewCookieStore([]byte(config.SessionKey))
 	command := commands.NewCommand(config.CommandsPath)
 	events, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", "requests", 0)
+	storage := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
 	if err != nil {
 		return err
 	}
 
-	server := newServer(store, sessionStore, events, command)
+	server := newServer(store, sessionStore, command, events, storage)
 
 	return http.ListenAndServe(config.BindAddr, server)
 }

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -33,19 +34,21 @@ type server struct {
 	router        *mux.Router
 	logger        *logrus.Logger
 	store         store.Store
-	events        *kafka.Conn
-	sessionsStore sessions.Store
 	command       services.Command
+	events        *kafka.Conn
+	storage       *redis.Client
+	sessionsStore sessions.Store
 }
 
-func newServer(store store.Store, sessionsStore sessions.Store, events *kafka.Conn, command services.Command) *server {
+func newServer(store store.Store, sessionsStore sessions.Store, command services.Command, events *kafka.Conn, storage *redis.Client) *server {
 	s := &server{
 		router:        mux.NewRouter(),
 		logger:        logrus.New(),
 		store:         store,
 		sessionsStore: sessionsStore,
-		events:        events,
 		command:       command,
+		events:        events,
+		storage:       storage,
 	}
 
 	s.configureRouter()
@@ -219,6 +222,14 @@ func (s *server) handleConfigCreateRequest() http.HandlerFunc {
 			s.error(w, r, http.StatusUnprocessableEntity, err)
 			return
 		}
+
+		s.events.SetWriteDeadline(time.Now().Add(time.Second * 10))
+		s.events.WriteMessages(
+			kafka.Message{
+				Key:   []byte(p.Username),
+				Value: []byte(p.Type),
+			},
+		)
 
 		//TODO: Think about transactions
 		if err := s.store.Profile().Create(p); err != nil {
